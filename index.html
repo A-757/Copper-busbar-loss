@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分柜子铜排热损耗计算器(kW)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .wrap {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #222;
+            margin-bottom: 16px;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+        }
+        .top-box {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        @media (max-width:992px) {
+            .top-box {
+                grid-template-columns: 1fr;
+            }
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        th,td {
+            border: 1px solid #ddd;
+            padding: 8px 4px;
+            text-align: center;
+            font-size: 13px;
+        }
+        th {
+            background: #2563eb;
+            color: #fff;
+        }
+        /* 相同柜子行交替底色区分 */
+        .group-1 { background-color: #eff6ff; }
+        .group-2 { background-color: #f0fdf4; }
+        .group-3 { background-color: #fef2f2; }
+        .group-4 { background-color: #fdf4ff; }
+        .group-5 { background-color: #fffbeb; }
+        .group-6 { background-color: #ecfdf5; }
+        .group-7 { background-color: #fef3c7; }
+        .group-8 { background-color: #e0e7ff; }
+        .group-9 { background-color: #dcfce7; }
+        .group-10 { background-color: #ffedd5; }
+        /* 柜子汇总行样式 */
+        .cabinet-total-row {
+            font-weight: bold;
+            background-color: #dbeafe !important;
+        }
+        .cabinet-total-row td {
+            color: #1e40af;
+        }
+        input {
+            width: 100%;
+            padding: 6px 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            placeholder: "请输入数值";
+        }
+        input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        .total-sum {
+            background: #ffe8e8;
+            padding: 12px 16px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #c02424;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+        .cabinet-sum-box {
+            background: #f0fdf4;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .cabinet-sum-item {
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #bbf7d0;
+        }
+        .cabinet-sum-item span {
+            font-weight: bold;
+            color: #047857;
+        }
+        canvas {
+            width:100%;
+            max-height:420px;
+        }
+        .btn-box {
+            margin:12px 0;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        button {
+            padding:8px 16px;
+            border:none;
+            border-radius:6px;
+            background:#2563eb;
+            color:#fff;
+            cursor:pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background:#1d4ed8;
+        }
+        button#reset {
+            background:#666;
+        }
+        button#reset:hover {
+            background:#444;
+        }
+        button#addRow {
+            background:#10b981;
+        }
+        button#addRow:hover {
+            background:#059669;
+        }
+        button#downloadTemplate {
+            background:#f59e0b;
+        }
+        button#downloadTemplate:hover {
+            background:#d97706;
+        }
+        button.del-row {
+            padding: 4px 8px;
+            font-size: 12px;
+            background: #ef4444;
+        }
+        button.del-row:hover {
+            background: #dc2626;
+        }
+        .tip {
+            font-size:12px;
+            color:#666;
+            margin:6px 0;
+        }
+        .row-p {
+            font-weight: 500;
+            color: #2563eb;
+        }
+        #fileInput {
+            display: none;
+        }
+        .file-label {
+            padding:8px 16px;
+            background:#8b5cf6;
+            color:#fff;
+            border-radius:6px;
+            cursor:pointer;
+        }
+        .file-label:hover {
+            background:#7c3aed;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="top-box">
+        <div class="card">
+            <h2>分柜子铜排参数表（Excel导入/手动录入）</h2>
+            <div class="btn-box">
+                <button id="calcAll">一键计算所有行</button>
+                <button id="addRow">新增一行</button>
+                <button id="reset">重置为3行空白</button>
+                <button id="downloadTemplate">下载Excel模板</button>
+                <label class="file-label" for="fileInput">导入Excel文件</label>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+            </div>
+            <div class="tip">
+                字段顺序：柜子名称、电流(A)、宽度(mm)、厚度(mm)、数量N、长度(mm)；相同柜子自动分组，单柜独立计算总损耗
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>柜子名称</th>
+                        <th>电流I(A)</th>
+                        <th>宽A(mm)</th>
+                        <th>厚B(mm)</th>
+                        <th>并联根数N</th>
+                        <th>长度L(mm)</th>
+                        <th>该行总损耗(kW)</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            
+            <!-- 各柜子独立损耗汇总 -->
+            <div id="cabinetSumBox" class="cabinet-sum-box"></div>
+            
+            <!-- 全局总损耗 -->
+            <div class="total-sum">
+                所有柜子合计总损耗：<span id="allTotalKw">0.0000</span> kW
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>损耗可视化对比图</h2>
+            <div class="btn-box" style="justify-content: center;">
+                <button id="showRowChart">按单条铜排展示</button>
+                <button id="showCabinetChart">按柜子总损耗展示</button>
+            </div>
+            <canvas id="lossChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    const rhoCu = 0.0175;
+    const defaultRowCount = 3;
+    const tableBody = document.getElementById('tableBody');
+    const cabinetSumBox = document.getElementById('cabinetSumBox');
+    let chart;
+    let chartType = 'row'; // chartType: row=单条, cabinet=柜子汇总
+
+    // 初始化表格：默认3行空白输入
+    function initTable() {
+        tableBody.innerHTML = '';
+        for(let i=1;i<=defaultRowCount;i++){
+            addSingleRow(i);
+        }
+        initChart();
+    }
+
+    // 新增单行（列顺序严格匹配表头：柜子名称→电流→宽度→厚度→数量→长度）
+    function addSingleRow(index = null, data = {}) {
+        const currentRowNum = tableBody.querySelectorAll('tr').length + 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${index || currentRowNum}</td>
+            <td><input class="cabinet" placeholder="柜子名称" value="${data.cabinet||''}"></td>
+            <td><input class="i" placeholder="电流A" min="0" step="1" value="${data.i||''}"></td>
+            <td><input class="a" placeholder="宽度mm" min="0" step="0.1" value="${data.a||''}"></td>
+            <td><input class="b" placeholder="厚度mm" min="0" step="0.1" value="${data.b||''}"></td>
+            <td><input class="n" placeholder="根数" min="1" step="1" value="${data.n||1}"></td>
+            <td><input class="l" placeholder="长度mm" min="0" step="1" value="${data.l||''}"></td>
+            <td class="row-p">0.0000</td>
+            <td><button class="del-row">删除</button></td>
+        `;
+        tableBody.appendChild(tr);
+        
+        // 绑定删除行事件
+        tr.querySelector('.del-row').addEventListener('click', () => {
+            tr.remove();
+            reorderRowIndex();
+            calcAll();
+        });
+    }
+
+    // 重新排序行序号
+    function reorderRowIndex() {
+        const rows = tableBody.querySelectorAll('tr');
+        rows.forEach((tr, idx) => {
+            tr.querySelector('td:first-child').textContent = idx + 1;
+        });
+    }
+
+    // 初始化图表
+    function initChart() {
+        const ctx = document.getElementById('lossChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '损耗(kW)',
+                    data: [],
+                    backgroundColor: '#3b82f6',
+                }]
+            },
+            options: {
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{
+                    title:{display:true,text:'单条铜排损耗功率(kW)'},
+                },
+                scales:{
+                    y:{beginAtZero:true,title:{display:true,text:'损耗 kW'}}
+                }
+            }
+        })
+    }
+
+    // 更新图表数据
+    function updateChart() {
+        const rows = tableBody.querySelectorAll('tr');
+        if(chartType === 'row'){
+            // 按单条铜排展示
+            const labels = Array.from(rows, (_, i) => `第${i+1}行`);
+            const lossData = Array.from(rows, tr => Number(tr.querySelector('.row-p').textContent) || 0);
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = lossData;
+            chart.options.plugins.title.text = '单条铜排损耗功率(kW)';
+        } else {
+            // 按柜子总损耗展示
+            const cabinetMap = getCabinetLossMap();
+            const labels = Array.from(cabinetMap.keys());
+            const lossData = Array.from(cabinetMap.values());
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = lossData;
+            chart.options.plugins.title.text = '各柜子总损耗功率(kW)';
+        }
+        chart.update();
+    }
+
+    // 获取柜子-总损耗映射
+    function getCabinetLossMap() {
+        const rows = tableBody.querySelectorAll('tr');
+        const cabinetMap = new Map();
+        rows.forEach(tr=>{
+            const cabinet = tr.querySelector('.cabinet').value.trim() || '未分组';
+            const loss = Number(tr.querySelector('.row-p').textContent) || 0;
+            if(cabinetMap.has(cabinet)){
+                cabinetMap.set(cabinet, cabinetMap.get(cabinet) + loss);
+            } else {
+                cabinetMap.set(cabinet, loss);
+            }
+        });
+        return cabinetMap;
+    }
+
+    // 批量计算所有行
+    function calcAll() {
+        const rows = tableBody.querySelectorAll('tr');
+        const rowLossList = [];
+        let sumAll = 0;
+
+        // 1. 逐行计算单条损耗
+        rows.forEach(tr=>{
+            // 按新列顺序取值：柜子→电流→宽度→厚度→根数→长度
+            const I = Number(tr.querySelector('.i').value) || 0;
+            const A = Number(tr.querySelector('.a').value) || 0;
+            const B = Number(tr.querySelector('.b').value) || 0;
+            const N = Number(tr.querySelector('.n').value) || 1;
+            const Lmm = Number(tr.querySelector('.l').value) || 0;
+
+            // 长度mm转为m参与计算
+            const Lm = Lmm / 1000;
+            // 计算截面积、电阻
+            const S = A * B;
+            const R = S === 0 ? 0 : rhoCu * Lm / S;
+            // 计算损耗：W转kW，除以1000
+            const Pw = I * I * R * N;
+            const Pkw = Pw / 1000;
+            sumAll += Pkw;
+
+            // 显示结果，保留4位小数
+            tr.querySelector('.row-p').textContent = Pkw.toFixed(4);
+            rowLossList.push(Pkw);
+        })
+
+        // 2. 按柜子分组汇总
+        const cabinetMap = getCabinetLossMap();
+        
+        // 3. 更新柜子汇总面板
+        cabinetSumBox.innerHTML = '';
+        let groupIdx = 1;
+        cabinetMap.forEach((loss, cabinet) => {
+            const item = document.createElement('div');
+            item.className = 'cabinet-sum-item';
+            item.innerHTML = `柜子「${cabinet}」总损耗：<span>${loss.toFixed(4)}</span> kW`;
+            cabinetSumBox.appendChild(item);
+            
+            // 给相同柜子的行标底色
+            rows.forEach(tr=>{
+                const rowCabinet = tr.querySelector('.cabinet').value.trim() || '未分组';
+                if(rowCabinet === cabinet){
+                    tr.className = `group-${groupIdx % 10}`;
+                }
+            });
+            groupIdx++;
+        });
+
+        // 4. 更新全局总损耗
+        document.getElementById('allTotalKw').textContent = sumAll.toFixed(4);
+        // 5. 更新图表
+        updateChart();
+    }
+
+    // 重置为3行空白状态
+    function resetAll() {
+        initTable();
+        calcAll();
+    }
+
+    // 1. 下载Excel模板（表头严格匹配新顺序：柜子名称、电流(A)、宽度(mm)、厚度(mm)、数量N、长度(mm)）
+    document.getElementById('downloadTemplate').onclick = function(){
+        const templateData = [
+            ["柜子名称","电流(A)","宽度(mm)","厚度(mm)","数量N","长度(mm)"],
+            ["柜子1","1000","100","10","2","2000"],
+            ["柜子1","800","80","8","1","1500"],
+            ["柜子2","1200","120","12","3","2500"]
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "铜排参数");
+        XLSX.writeFile(wb, "分柜子铜排损耗计算模板.xlsx");
+    }
+
+    // 2. 导入Excel文件（读取顺序完全匹配新表头）
+    document.getElementById('fileInput').onchange = function(e){
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event){
+            const binary = event.target.result;
+            const wb = XLSX.read(binary, {type:"binary"});
+            const firstSheet = wb.Sheets[wb.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header:1});
+            // 清空现有表格
+            tableBody.innerHTML = '';
+            // 跳过表头第一行，逐行导入
+            for(let i=1; i<jsonData.length; i++){
+                const row = jsonData[i];
+                addSingleRow(null, {
+                    cabinet: row[0]||'',
+                    i: row[1]||0,
+                    a: row[2]||0,
+                    b: row[3]||0,
+                    n: row[4]||1,
+                    l: row[5]||0
+                })
+            }
+            reorderRowIndex();
+            calcAll();
+            // 清空文件选择，可重复导入
+            e.target.value = '';
+        }
+        reader.readAsBinaryString(file);
+    }
+
+    // 图表切换事件
+    document.getElementById('showRowChart').addEventListener('click', ()=>{
+        chartType = 'row';
+        updateChart();
+    });
+    document.getElementById('showCabinetChart').addEventListener('click', ()=>{
+        chartType = 'cabinet';
+        updateChart();
+    });
+
+    // 绑定基础按钮事件
+    document.getElementById('calcAll').addEventListener('click', calcAll);
+    document.getElementById('addRow').addEventListener('click', addSingleRow);
+    document.getElementById('reset').addEventListener('click', resetAll);
+
+    // 页面初始化
+    initTable();
+    calcAll();
+</script>
+</body>
+</html>
