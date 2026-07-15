@@ -220,7 +220,7 @@
         <div class="formula-item">
             1、铜排直流电阻公式：<span class="formula-text">R = ρ × L / S</span>
             <div class="param-desc">
-                ρ=0.0175 Ω·mm²/m（铜电阻率）；L=长度(m，输入mm自动除以1000转换)；S=截面积(mm²)=宽度A × 厚度B
+                ρ=0.0249 Ω·mm²/m（铜电阻率）；L=长度(m，输入mm自动除以1000转换)；S=截面积(mm²)=宽度A × 厚度B
             </div>
         </div>
         <div class="formula-item">
@@ -289,7 +289,8 @@
 </div>
 
 <script>
-    const rhoCu = 0.0175;
+    // 修改电阻率为0.0249，其余代码完全不变
+    const rhoCu = 0.0249;
     const defaultRowCount = 3;
     const tableBody = document.getElementById('tableBody');
     const cabinetSumBox = document.getElementById('cabinetSumBox');
